@@ -13,6 +13,9 @@ from tqdm import tqdm
 vocab = np.array([chr(i) for i in range(2048)])
 encoder = LabelEncoder().fit(vocab)
 
+languages = next(os.walk('./txt'))[1]
+language_encoder = LabelEncoder().fit(languages)
+
 # For reproducibility
 np.random.seed(20)
 
@@ -42,6 +45,17 @@ def makeDF(data_path, samples):
 train = makeDF(os.getcwd(),100)
 train['as_numbers'] = train['string'].apply(lambda x: encoder.transform(list(x)))
 train['length'] = train['string'].apply(lambda x: len(x))
+train['lang_as_numbers'] = language_encoder.transform(train['language'])
+
+test = pd.read_csv('europarl-test.txt', sep='\t', header=None, names=['language', 'string'])
+test['string'] = test['string'].str.replace(r"\(.*\)","")
+test['string'] = test['string'].str.replace("'","")
+test['string'] = test['string'].apply(lambda x: re.sub(r'/[^\w\s]/gi', '', x))
+test['string'] = test['string'].apply(lambda x: re.sub(r'[^\u0000-\u0800]', '', x))
+test = test[test['string'].apply(len) != 0] # remove empty strings
+test['as_numbers'] = test['string'].apply(lambda x: encoder.transform(list(x)))
+test['length'] = test['string'].apply(lambda x: len(x))
+test['lang_as_numbers'] = language_encoder.transform(test['language'])
 
 class SimpleDataIterator():
     def __init__(self, df):
@@ -60,7 +74,7 @@ class SimpleDataIterator():
             self.shuffle()
         res = self.df.iloc[self.cursor:self.cursor+n-1]
         self.cursor += n
-        return res['as_numbers'], res['language']
+        return res['as_numbers'], res['lang_as_numbers']
 
 class PaddedDataIterator(SimpleDataIterator):
 
@@ -77,7 +91,7 @@ class PaddedDataIterator(SimpleDataIterator):
         for i, x_i in enumerate(x):
             x_i[:res['length'].values[i]] = res['as_numbers'].values[i]
 
-        return x, res['language'], res['length']
+        return x, res['lang_as_numbers'], res['length']
 
 def reset_graph():
     if 'sess' in globals() and sess:
@@ -93,13 +107,13 @@ def build_graph(
     reset_graph()
 
     # Placeholders
-    x = tf.placeholder(tf.int32, [batch_size, None]) # [batch_size, num_steps]
-    seqlen = tf.placeholder(tf.int32, [batch_size])
-    y = tf.placeholder(tf.int32, [batch_size])
-    keep_prob = tf.constant(1.0)
+    x = tf.placeholder(tf.int32, shape=[batch_size, None]) # [batch_size, num_steps]
+    seqlen = tf.placeholder(tf.int32, shape=[batch_size])
+    y = tf.placeholder(tf.int32, shape=[batch_size])
+    keep_prob = tf.placeholder(tf.float32,[])
 
     # Embedding layer
-    embeddings = tf.get_variable('embedding_matrix', [vocab_size, state_size])
+    embeddings = tf.get_variable('embedding_matrix', shape=[vocab_size, state_size])
     rnn_inputs = tf.nn.embedding_lookup(embeddings, x)
 
     # RNN
@@ -135,7 +149,7 @@ def build_graph(
     correct = tf.equal(tf.cast(tf.argmax(preds,1),tf.int32), y)
     accuracy = tf.reduce_mean(tf.cast(correct, tf.float32))
 
-    loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels = logits, logits=y))
+    loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=y, logits=logits))
     train_step = tf.train.AdamOptimizer(1e-4).minimize(loss)
 
     return {
@@ -154,6 +168,7 @@ def train_graph(graph, batch_size = 256, num_epochs = 10, iterator = PaddedDataI
         sess.run(tf.initialize_all_variables())
         tr = iterator(train)
         te = iterator(test)
+        g = graph
 
         step, accuracy = 0, 0
         tr_losses, te_losses = [], []
