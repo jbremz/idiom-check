@@ -1,3 +1,5 @@
 /txt
 
 europarl-test.txt
+
+*.pyc

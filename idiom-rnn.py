@@ -9,6 +9,7 @@ from tensorflow.contrib import rnn
 from utils import *
 from sklearn.preprocessing import LabelEncoder
 from tqdm import tqdm
+from utils import makeDF
 
 vocab = np.array([chr(i) for i in range(2048)])
 encoder = LabelEncoder().fit(vocab)
@@ -18,29 +19,6 @@ language_encoder = LabelEncoder().fit(languages)
 
 # For reproducibility
 np.random.seed(20)
-
-def makeDF(data_path, samples):
-    '''
-    Inputs:
-    data_path - the path of the txt directory containing the samples
-    samples - number of text samples to take for each language
-
-    Returns:
-    A pandas dataframe with the string and the language
-
-    '''
-    languages = next(os.walk('./txt'))[1]
-
-    strings = np.array([])
-    langs = np.array([])
-
-    for language in tqdm(languages):
-        file_list = glob.glob(os.path.join(data_path, "txt", language,"*.txt"))
-        the_corpus = corpus(np.random.choice(file_list, samples))
-        strings = np.concatenate([strings, the_corpus])
-        langs = np.concatenate([langs, [language]*samples])
-
-    return pd.DataFrame(np.array([strings, langs]).T, columns=['string','language'])
 
 train = makeDF(os.getcwd(),100)
 train['as_numbers'] = train['string'].apply(lambda x: encoder.transform(list(x)))
