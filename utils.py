@@ -3,6 +3,22 @@ import numpy as np
 from tqdm import tqdm_notebook as tqdm
 import pandas as pd
 
+def string_cleaner(sample):
+    
+    sample = re.sub(r'[^\u0000-\u0800]', '', sample) # select only the first 2048 UTF-8 characters
+    sample = re.sub(r'\([^)]*\)', ' ', sample) # rm characters within brackets
+    sample = re.sub('<[^>]+>', '', sample) # rm characters within <>
+    sample = re.sub(r'\d+', '', sample) # rm one or more digits
+    sample = sample.replace('\n', ' ') # rm line delimiters
+    sample = re.sub(r'/[^\w\s]/gi', '', sample)
+    sample = re.sub(r'\W+', ' ', sample) # rm non-word characters
+    sample = re.sub("'", '', sample) # rm single quotes
+    sample = sample.lower() # make lowercase
+    sample = re.sub(r'^\s','', sample) # rm space at start
+    sample = re.sub(r'\s$','', sample) # rm space at end
+    
+    return sample
+
 def corpus(file_list):
     '''
     Inputs:
@@ -15,10 +31,11 @@ def corpus(file_list):
 
     for file_path in file_list:
         with open(file_path) as f_input:
-            sample = f_input.read()[:20000] # only select the first 20000 characters for memory purposes
-            sample = re.sub(r'[^\u0000-\u0800]', '', sample) # select only the first 2048 UTF-8 characters
-            sample = re.sub(r'\([^)]*\)', ' ', re.sub('<[^>]+>', '', sample).replace('\n', ' '))
-            sample = re.sub(r'/[^\w\s]/gi', '', sample)
+            try:
+                sample = f_input.read()[:20000] # only select the first 20000 characters for memory purposes
+            except UnicodeDecodeError:
+                continue
+            sample = string_cleaner(sample)
             if len(sample) > 0:
                 corpus.append(sample)
 
@@ -60,6 +77,7 @@ def makeDF(data_path, samples):
         file_list = glob.glob(os.path.join(data_path, "txt", language,"*.txt"))
         the_corpus = corpus(np.random.choice(file_list, samples))
         strings = np.concatenate([strings, the_corpus])
-        langs = np.concatenate([langs, [language]*samples])
+        langs = np.concatenate([langs, [language]*len(the_corpus)])
 
     return pd.DataFrame(np.array([strings, langs]).T, columns=['string','language'])
+
