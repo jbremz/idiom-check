@@ -4,10 +4,6 @@ europarl-test.txt
 
 *.pyc
 
-*.pyc
-
-*.pyc
-
 *.ipynb
 
-*.pyc
+.ipynb_checkpoints
