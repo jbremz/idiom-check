@@ -10,7 +10,7 @@ def string_cleaner(sample):
     sample = re.sub('<[^>]+>', '', sample) # rm characters within <>
     sample = re.sub(r'\d+', '', sample) # rm one or more digits
     sample = sample.replace('\n', ' ') # rm line delimiters
-    sample = re.sub(r'/[^\w\s]/gi', '', sample)
+    sample = re.sub(r'/[^\w\s]/gi', '', sample) # rm non-word characters (don't think this does much)
     sample = re.sub(r'\W+', ' ', sample) # rm non-word characters
     sample = re.sub("'", '', sample) # rm single quotes
     sample = sample.lower() # make lowercase
