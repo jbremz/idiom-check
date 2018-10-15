@@ -9,3 +9,5 @@ europarl-test.txt
 *.pyc
 
 *.ipynb
+
+*.pyc
